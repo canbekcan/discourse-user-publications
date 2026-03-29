@@ -6,7 +6,7 @@
 
 enabled_site_setting :user_publications_enabled
 
-# 1. Define Namespace & Engine FIRST
+# 1. Define Namespace & Engine
 module ::DiscourseUserPublications
   PLUGIN_NAME = "discourse-user-publications"
   
@@ -16,18 +16,20 @@ module ::DiscourseUserPublications
   end
 end
 
-# 2. Load Routes SECOND
+# 2. Load Routes
 load File.expand_path('../config/routes.rb', __FILE__)
 
 # 3. Execute dependencies and serializers AFTER Rails is fully booted
 after_initialize do
-  require_dependency 'user'
   
-  class ::User
-    has_many :user_publications, dependent: :destroy
+  # Modern Discourse strictly requires reloadable_patch for modifying core models
+  reloadable_patch do
+    User.class_eval do
+      has_many :user_publications, dependent: :destroy
+    end
   end
 
-  # Inject data into the frontend User model natively
+  # Inject data natively into the frontend User model
   add_to_serializer(:user, :publications, false) do
     object.user_publications.map do |pub|
       {
@@ -39,7 +41,6 @@ after_initialize do
     end
   end
 
-  # Load Jobs and Controllers
-  require_dependency File.expand_path('../app/jobs/regular/sync_orcid_publications.rb', __FILE__)
-  require_dependency File.expand_path('../app/controllers/discourse_user_publications/publications_controller.rb', __FILE__)
+  # NOTE: We DO NOT manually require files in the app/ directory. 
+  # Discourse Zeitwerk handles models, controllers, and jobs automatically.
 end

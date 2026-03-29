@@ -1,0 +1,19 @@
+en:
+  js:
+    user_publications:
+      tab_title: "Publications"
+      sync: "Sync ORCID"
+      add_new: "Add Publication"
+      modal:
+        title: "Add New Publication"
+        publication_title: "Title"
+        publication_type: "Type"
+        url: "URL / DOI Link"
+        save: "Save Publication"
+        cancel: "Cancel"
+      types:
+        article: "Article / Preprint"
+        book: "Book / Monograph"
+        chapter: "Book Chapter"
+        website: "Website / Data Set"
+        proceeding: "Conference Proceeding"

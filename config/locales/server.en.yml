@@ -1,0 +1,5 @@
+en:
+  site_settings:
+    user_publications_enabled: "Enable the User Publications tracking plugin."
+    orcid_api_key: "Your ORCID Public API v3.0 Key. (Leave blank to disable background synchronization)."
+    orcid_user_field_id: "The ID number of the Custom User Field where users input their ORCID iD (Default is usually 3)."

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'faraday'
+
 module Jobs
   class SyncOrcidPublications < ::Jobs::Base
     def execute(args)
@@ -7,15 +9,84 @@ module Jobs
       user = User.find_by(id: user_id)
       return unless user
 
-      # Extract ORCID from custom user fields
+      # Extract ORCID and API key from site settings/user fields
       field_id = SiteSetting.orcid_user_field_id.to_s
       orcid_id = user.custom_fields["user_field_#{field_id}"]
-      
-      return if orcid_id.blank? || SiteSetting.orcid_api_key.blank?
+      api_key = SiteSetting.orcid_api_key
 
-      # Implementation of ORCID API call utilizing Faraday
-      # (Truncated for brevity, but requires processing JSON response 
-      # and utilizing UserPublication.find_or_initialize_by(orcid_put_code: x))
+      return if orcid_id.blank? || api_key.blank?
+
+      # ORCID Public API v3.0 Endpoint for reading works
+      url = "https://pub.orcid.org/v3.0/#{orcid_id}/works"
+
+      connection = Faraday.new(
+        url: url,
+        headers: {
+          'Accept' => 'application/json',
+          'Authorization' => "Bearer #{api_key}"
+        }
+      )
+
+      response = connection.get
+
+      unless response.success?
+        Rails.logger.warn("ORCID Sync Failed for User #{user_id}: HTTP #{response.status} - #{response.body}")
+        return
+      end
+
+      data = JSON.parse(response.body)
+      groups = data["group"] || []
+
+      groups.each do |group|
+        # ORCID groups multiple versions of the same work together. Grab the preferred summary (index 0).
+        summary = group.dig("work-summary", 0)
+        next unless summary
+
+        put_code = summary["put-code"].to_s
+        title = summary.dig("title", "title", "value")
+        orcid_type = summary["type"]
+        
+        # Extract URL: Try direct URL first, fallback to DOI URL if available
+        url = summary.dig("url", "value")
+        if url.blank? && summary["external-ids"]
+          doi_ext = summary["external-ids"]["external-id"]&.find { |ext| ext["external-id-type"] == "doi" }
+          url = doi_ext.dig("external-id-url", "value") if doi_ext
+        end
+
+        # Map the ORCID string type to our database Enum
+        pub_type = map_publication_type(orcid_type)
+
+        # find_or_initialize_by prevents duplicate entries on subsequent syncs
+        publication = user.user_publications.find_or_initialize_by(orcid_put_code: put_code)
+        publication.title = title || "Untitled Publication"
+        publication.publication_type = pub_type
+        publication.url = url
+        
+        publication.save
+      end
+    rescue StandardError => e
+      # Route errors to Discourse's built-in /logs UI for admin visibility
+      Discourse.warn_exception(e, message: "Error syncing ORCID publications for user #{user_id}")
+    end
+
+    private
+
+    def map_publication_type(orcid_type)
+      # ORCID has dozens of types; we map the common academic ones to our 5 defined Enums
+      case orcid_type
+      when 'journal-article', 'magazine-article', 'newspaper-article', 'preprint'
+        :article
+      when 'book', 'edited-book', 'monograph'
+        :book
+      when 'book-chapter'
+        :chapter
+      when 'conference-paper', 'conference-poster', 'proceedings-article'
+        :proceeding
+      when 'website', 'online-resource', 'data-set', 'software'
+        :website
+      else
+        :article # Safe default fallback
+      end
     end
   end
 end
