@@ -1,0 +1,69 @@
+import Component from "@glimmer/component";
+import { tracked } from "@glimmer/tracking";
+import { action } from "@ember/object";
+import DButton from "discourse/components/d-button";
+import DModal from "discourse/components/d-modal";
+import { Input } from "@ember/component";
+import ajax from "discourse/lib/ajax";
+import { popupAjaxError } from "discourse/lib/ajax-error";
+import i18n from "discourse-common/helpers/i18n";
+
+export default class EditPublicationModal extends Component {
+  @tracked title = "";
+  @tracked publication_type = "article";
+  @tracked url = "";
+  @tracked isSaving = false;
+
+  @action
+  async save() {
+    this.isSaving = true;
+    try {
+      const result = await ajax("/publications", {
+        type: "POST",
+        data: {
+          publication: {
+            title: this.title,
+            publication_type: this.publication_type,
+            url: this.url,
+          },
+        },
+      });
+      
+      // Update the UI instantly without refreshing
+      this.args.model.onSave(result);
+      this.args.closeModal();
+    } catch (e) {
+      popupAjaxError(e);
+    } finally {
+      this.isSaving = false;
+    }
+  }
+
+  <template>
+    <DModal @title={{i18n "user_publications.modal.title"}} @closeModal={{@closeModal}}>
+      <:body>
+        <div class="control-group">
+          <label>{{i18n "user_publications.modal.publication_title"}}</label>
+          <Input @type="text" @value={{this.title}} class="full-width" />
+        </div>
+        
+        <div class="control-group">
+          <label>{{i18n "user_publications.modal.url"}}</label>
+          <Input @type="text" @value={{this.url}} class="full-width" />
+        </div>
+      </:body>
+      <:footer>
+        <DButton 
+          @action={{this.save}} 
+          @label="user_publications.modal.save" 
+          class="btn-primary" 
+          @isLoading={{this.isSaving}} 
+        />
+        <DButton 
+          @action={{@closeModal}} 
+          @label="user_publications.modal.cancel" 
+        />
+      </:footer>
+    </DModal>
+  </template>
+}
