@@ -1,0 +1,9 @@
+plugins:
+  user_publications_enabled:
+    default: true
+    client: true
+  orcid_api_key:
+    default: ''
+    secret: true
+  orcid_user_field_id:
+    default: 3
