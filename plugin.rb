@@ -16,10 +16,10 @@ module ::DiscourseUserPublications
   end
 end
 
-# 2. Load Routes
-load File.expand_path('../config/routes.rb', __FILE__)
+# NOTE: We rely on Discourse to auto-load config/routes.rb natively.
+# DO NOT manually require or load it here.
 
-# 3. Execute dependencies and serializers AFTER Rails is fully booted
+# 2. Execute dependencies and serializers AFTER Rails is fully booted
 after_initialize do
   
   # Modern Discourse strictly requires reloadable_patch for modifying core models
@@ -40,7 +40,4 @@ after_initialize do
       }
     end
   end
-
-  # NOTE: We DO NOT manually require files in the app/ directory. 
-  # Discourse Zeitwerk handles models, controllers, and jobs automatically.
 end
