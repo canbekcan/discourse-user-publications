@@ -4,7 +4,7 @@ import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import DButton from "discourse/components/d-button";
 import DModal from "discourse/components/d-modal";
-import ajax from "discourse/lib/ajax";
+import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import i18n from "discourse-common/helpers/i18n";
 
@@ -52,8 +52,6 @@ export default class EditPublicationModal extends Component {
       <:body>
         <div class="control-group">
           <label>{{i18n "user_publications.modal.publication_title"}}</label>
-          {{! @ember/component Input was removed in Ember 6 strict mode.
-              Use native <input> with the {{on}} modifier for two-way binding. }}
           <input
             type="text"
             class="full-width"
