@@ -1,6 +1,7 @@
 import Component from "@glimmer/component";
 import { action } from "@ember/object";
-import { service } from "@ember/service";
+// Fix #5 — Use inject as service per Discourse plugin review standards.
+import { inject as service } from "@ember/service";
 import DButton from "discourse/components/d-button";
 import EditPublicationModal from "./modal/edit-publication";
 import ajax from "discourse/lib/ajax";
@@ -14,16 +15,17 @@ export default class UserPublicationsList extends Component {
     this.modal.show(EditPublicationModal, {
       model: {
         user: this.args.user,
-        onSave: (newPub) => this.args.user.publications.pushObject(newPub)
-      }
+        onSave: (newPub) => this.args.user.publications.pushObject(newPub),
+      },
     });
   }
 
   @action
   async syncOrcid() {
     try {
-      await ajax(`/user_publications/${this.args.user.username}/sync`, { type: "POST" });
-      // Notify user sync has started in background
+      await ajax(`/user_publications/${this.args.user.username}/sync`, {
+        type: "POST",
+      });
     } catch (e) {
       popupAjaxError(e);
     }

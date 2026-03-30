@@ -7,11 +7,19 @@
 enabled_site_setting :user_publications_enabled
 
 after_initialize do
-  User.class_eval do
-    has_many :user_publications, dependent: :destroy
+  # Fix #2 — reloadable_patch keeps Zeitwerk happy during development code-reload.
+  reloadable_patch do
+    User.class_eval do
+      has_many :user_publications, dependent: :destroy
+    end
   end
 
-  add_to_serializer(:user, :publications) do
+  # Fix #1 — Target :user_show (UserShowSerializer), not :user (UserSerializer).
+  # UserShowSerializer is only instantiated for /u/:username.json (the profile page).
+  # UserSerializer is used everywhere: topic lists, directory, user cards, search.
+  # Using :user caused an N+1 that fired a publications query on every user mention
+  # and directory row in the entire site.
+  add_to_serializer(:user_show, :publications) do
     object.user_publications.map do |pub|
       {
         id: pub.id,
@@ -24,7 +32,7 @@ after_initialize do
     []
   end
 
-  add_to_serializer(:user, :include_publications?) do
+  add_to_serializer(:user_show, :include_publications?) do
     SiteSetting.user_publications_enabled
   end
 end
