@@ -1,0 +1,14 @@
+// Position the Publications tab between Summary and Activity in the user nav.
+// The connector appends to the DOM after Preferences, so we use flex order
+// to reinsert it visually between Summary (order: 10) and Activity (order: 30).
+
+.user-nav {
+  .user-nav__summary           { order: 10; }
+  .user-nav__publications      { order: 20; }
+  .user-nav__activity          { order: 30; }
+  .user-nav__notifications     { order: 40; }
+  .user-nav__personal-messages { order: 50; }
+  .user-nav__invites           { order: 60; }
+  .user-nav__badges            { order: 70; }
+  .user-nav__preferences       { order: 80; }
+}
