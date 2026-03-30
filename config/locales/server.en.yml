@@ -1,5 +1,6 @@
 en:
   site_settings:
-    user_publications_enabled: "Enable the User Publications tracking plugin."
-    orcid_api_key: "Your ORCID Public API v3.0 Key. (Leave blank to disable background synchronization)."
-    orcid_user_field_id: "The ID number of the Custom User Field where users input their ORCID iD (Default is usually 3)."
+    user_publications_enabled: "Enable the User Publications plugin. When disabled, the Publications tab is hidden and background sync is suspended."
+    orcid_client_id: "ORCID OAuth2 client ID. Use the same value as your OpenID Connect client ID (Admin → Settings → Login). Obtain from https://orcid.org/developer-tools."
+    orcid_client_secret: "ORCID OAuth2 client secret. Use the same value as your OpenID Connect client secret. Required to obtain a public API access token for background publication sync."
+    orcid_user_field_id: "The ID of the Discourse custom user field that stores each user's ORCID iD. This field is populated automatically when a user authenticates via ORCID OpenID Connect. Check Admin → Users → Custom Fields for the correct numeric ID (default: 3)."

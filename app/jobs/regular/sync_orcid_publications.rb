@@ -2,17 +2,13 @@
 
 module Jobs
   class SyncOrcidPublications < ::Jobs::Base
-    # Fix #3 — Use Discourse's Excon wrapper instead of raw Net::HTTP.
-    # Excon is Discourse's approved HTTP client: it ships in the bundle, supports
-    # per-request timeouts, and raises typed Excon::Error subclasses so callers
-    # can distinguish network failures from application errors.
-    # ssl_verify_peer: true is explicit — never disable in production code.
-    ORCID_READ_TIMEOUT    = 20
+    ORCID_TOKEN_URL      = "https://orcid.org/oauth/token"
+    ORCID_API_BASE       = "https://pub.orcid.org/v3.0"
+    ORCID_READ_TIMEOUT   = 20
     ORCID_CONNECT_TIMEOUT = 5
 
-    # SSRF guard: ORCID IDs must match the canonical format before being
-    # interpolated into the request URL. Rejects any custom-field value that
-    # could redirect the request to an internal host.
+    # ORCID iDs follow the format 0000-0002-1825-0097 (last char may be X).
+    # Validated before interpolation into the request URL to prevent SSRF.
     ORCID_ID_FORMAT = /\A\d{4}-\d{4}-\d{4}-\d{3}[\dX]\z/
 
     def execute(args)
@@ -20,20 +16,22 @@ module Jobs
       user = User.find_by(id: user_id)
       return unless user
 
-      field_id = SiteSetting.orcid_user_field_id.to_s
-      orcid_id = user.custom_fields["user_field_#{field_id}"]
-      api_key  = SiteSetting.orcid_api_key
+      field_id  = SiteSetting.orcid_user_field_id.to_s
+      orcid_id  = user.custom_fields["user_field_#{field_id}"]
 
-      return if orcid_id.blank? || api_key.blank?
+      return if orcid_id.blank?
       return unless orcid_id.match?(ORCID_ID_FORMAT)
 
-      url = "https://pub.orcid.org/v3.0/#{orcid_id}/works"
+      access_token = fetch_public_access_token
+      return if access_token.blank?
+
+      url = "#{ORCID_API_BASE}/#{orcid_id}/works"
 
       response = Excon.get(
         url,
         headers: {
           "Accept"        => "application/json",
-          "Authorization" => "Bearer #{api_key}"
+          "Authorization" => "Bearer #{access_token}"
         },
         read_timeout:    ORCID_READ_TIMEOUT,
         connect_timeout: ORCID_CONNECT_TIMEOUT,
@@ -76,6 +74,45 @@ module Jobs
     end
 
     private
+
+    # Obtains a public-read access token from ORCID using the plugin's
+    # OAuth2 client credentials (same as the OpenID Connect credentials).
+    # ORCID public tokens are valid for 20 years; cache for 7 days so a
+    # rotation or revocation is picked up within a week without hammering
+    # the token endpoint on every sync job.
+    def fetch_public_access_token
+      client_id     = SiteSetting.orcid_client_id
+      client_secret = SiteSetting.orcid_client_secret
+      return nil if client_id.blank? || client_secret.blank?
+
+      cache_key = "orcid_public_access_token/#{client_id}"
+
+      Discourse.cache.fetch(cache_key, expires_in: 7.days) do
+        response = Excon.post(
+          ORCID_TOKEN_URL,
+          body: URI.encode_www_form(
+            client_id:     client_id,
+            client_secret: client_secret,
+            grant_type:    "client_credentials",
+            scope:         "/read-public"
+          ),
+          headers: {
+            "Content-Type" => "application/x-www-form-urlencoded",
+            "Accept"       => "application/json"
+          },
+          read_timeout:    ORCID_CONNECT_TIMEOUT,
+          connect_timeout: ORCID_CONNECT_TIMEOUT,
+          ssl_verify_peer: true
+        )
+
+        unless response.status == 200
+          Rails.logger.warn("ORCID token request failed: HTTP #{response.status} - #{response.body}")
+          return nil
+        end
+
+        JSON.parse(response.body)["access_token"]
+      end
+    end
 
     def map_publication_type(orcid_type)
       case orcid_type

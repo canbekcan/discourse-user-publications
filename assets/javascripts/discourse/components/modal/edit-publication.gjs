@@ -1,18 +1,29 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
+import { on } from "@ember/modifier";
 import DButton from "discourse/components/d-button";
 import DModal from "discourse/components/d-modal";
-import { Input } from "@ember/component";
 import ajax from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import i18n from "discourse-common/helpers/i18n";
+// discourse-common/helpers/i18n was removed — the canonical path is discourse-i18n
+import i18n from "discourse-i18n";
 
 export default class EditPublicationModal extends Component {
   @tracked title = "";
   @tracked publication_type = "article";
   @tracked url = "";
   @tracked isSaving = false;
+
+  @action
+  setTitle(event) {
+    this.title = event.target.value;
+  }
+
+  @action
+  setUrl(event) {
+    this.url = event.target.value;
+  }
 
   @action
   async save() {
@@ -28,7 +39,6 @@ export default class EditPublicationModal extends Component {
           },
         },
       });
-      
       this.args.model.onSave(result);
       this.args.closeModal();
     } catch (e) {
@@ -43,24 +53,36 @@ export default class EditPublicationModal extends Component {
       <:body>
         <div class="control-group">
           <label>{{i18n "user_publications.modal.publication_title"}}</label>
-          <Input @type="text" @value={{this.title}} class="full-width" />
+          {{! @ember/component Input was removed in Ember 6 strict mode.
+              Use native <input> with the {{on}} modifier for two-way binding. }}
+          <input
+            type="text"
+            class="full-width"
+            value={{this.title}}
+            {{on "input" this.setTitle}}
+          />
         </div>
-        
+
         <div class="control-group">
           <label>{{i18n "user_publications.modal.url"}}</label>
-          <Input @type="text" @value={{this.url}} class="full-width" />
+          <input
+            type="url"
+            class="full-width"
+            value={{this.url}}
+            {{on "input" this.setUrl}}
+          />
         </div>
       </:body>
       <:footer>
-        <DButton 
-          @action={{this.save}} 
-          @label="user_publications.modal.save" 
-          class="btn-primary" 
-          @isLoading={{this.isSaving}} 
+        <DButton
+          @action={{this.save}}
+          @label="user_publications.modal.save"
+          @isLoading={{this.isSaving}}
+          class="btn-primary"
         />
-        <DButton 
-          @action={{@closeModal}} 
-          @label="user_publications.modal.cancel" 
+        <DButton
+          @action={{@closeModal}}
+          @label="user_publications.modal.cancel"
         />
       </:footer>
     </DModal>

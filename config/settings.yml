@@ -1,9 +1,33 @@
 plugins:
+  # Master switch — disabling this also hides the Publications tab.
   user_publications_enabled:
     default: true
     client: true
-  orcid_api_key:
+
+  # -----------------------------------------------------------------------
+  # ORCID OAuth2 / OpenID Connect credentials
+  #
+  # These are the *same* credentials you entered in
+  #   Admin → Settings → Login → OpenID Connect
+  # for ORCID login (openid_connect_client_id / openid_connect_client_secret).
+  #
+  # Obtain them from: https://orcid.org/developer-tools
+  # Required scopes:  openid  /read-public
+  # -----------------------------------------------------------------------
+  orcid_client_id:
+    default: ''
+
+  orcid_client_secret:
     default: ''
     secret: true
+
+  # -----------------------------------------------------------------------
+  # ORCID iD user field
+  #
+  # The numeric ID of the Discourse custom user field that stores each
+  # user's ORCID iD (e.g. "0000-0002-1825-0097").
+  # This field is populated automatically when a user signs in via ORCID
+  # OpenID Connect — check Admin → Users → Custom Fields for the correct ID.
+  # -----------------------------------------------------------------------
   orcid_user_field_id:
     default: 3
