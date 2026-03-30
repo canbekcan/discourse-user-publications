@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require 'faraday'
+require 'net/http'
+require 'json'
 
 module Jobs
   class SyncOrcidPublications < ::Jobs::Base
@@ -17,20 +18,19 @@ module Jobs
       return if orcid_id.blank? || api_key.blank?
 
       # ORCID Public API v3.0 Endpoint for reading works
-      url = "https://pub.orcid.org/v3.0/#{orcid_id}/works"
+      uri = URI("https://pub.orcid.org/v3.0/#{orcid_id}/works")
 
-      connection = Faraday.new(
-        url: url,
-        headers: {
-          'Accept' => 'application/json',
-          'Authorization' => "Bearer #{api_key}"
-        }
-      )
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
 
-      response = connection.get
+      request = Net::HTTP::Get.new(uri)
+      request['Accept'] = 'application/json'
+      request['Authorization'] = "Bearer #{api_key}"
 
-      unless response.success?
-        Rails.logger.warn("ORCID Sync Failed for User #{user_id}: HTTP #{response.status} - #{response.body}")
+      response = http.request(request)
+
+      unless response.is_a?(Net::HTTPSuccess)
+        Rails.logger.warn("ORCID Sync Failed for User #{user_id}: HTTP #{response.code} - #{response.body}")
         return
       end
 
@@ -45,12 +45,12 @@ module Jobs
         put_code = summary["put-code"].to_s
         title = summary.dig("title", "title", "value")
         orcid_type = summary["type"]
-        
+
         # Extract URL: Try direct URL first, fallback to DOI URL if available
-        url = summary.dig("url", "value")
-        if url.blank? && summary["external-ids"]
+        work_url = summary.dig("url", "value")
+        if work_url.blank? && summary["external-ids"]
           doi_ext = summary["external-ids"]["external-id"]&.find { |ext| ext["external-id-type"] == "doi" }
-          url = doi_ext.dig("external-id-url", "value") if doi_ext
+          work_url = doi_ext.dig("external-id-url", "value") if doi_ext
         end
 
         # Map the ORCID string type to our database Enum
@@ -60,8 +60,8 @@ module Jobs
         publication = user.user_publications.find_or_initialize_by(orcid_put_code: put_code)
         publication.title = title || "Untitled Publication"
         publication.publication_type = pub_type
-        publication.url = url
-        
+        publication.url = work_url
+
         publication.save
       end
     rescue StandardError => e

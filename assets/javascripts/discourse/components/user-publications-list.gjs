@@ -22,7 +22,7 @@ export default class UserPublicationsList extends Component {
   @action
   async syncOrcid() {
     try {
-      await ajax(`/publications/${this.args.user.username}/sync`, { type: "POST" });
+      await ajax(`/user_publications/${this.args.user.username}/sync`, { type: "POST" });
       // Notify user sync has started in background
     } catch (e) {
       popupAjaxError(e);

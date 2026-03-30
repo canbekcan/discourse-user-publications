@@ -18,7 +18,7 @@ export default class EditPublicationModal extends Component {
   async save() {
     this.isSaving = true;
     try {
-      const result = await ajax("/publications", {
+      const result = await ajax("/user_publications", {
         type: "POST",
         data: {
           publication: {
@@ -29,7 +29,6 @@ export default class EditPublicationModal extends Component {
         },
       });
       
-      // Update the UI instantly without refreshing
       this.args.model.onSave(result);
       this.args.closeModal();
     } catch (e) {
