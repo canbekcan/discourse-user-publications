@@ -2,9 +2,9 @@
 
 module Jobs
   class SyncOrcidPublications < ::Jobs::Base
-    ORCID_TOKEN_URL      = "https://orcid.org/oauth/token"
-    ORCID_API_BASE       = "https://pub.orcid.org/v3.0"
-    ORCID_READ_TIMEOUT   = 20
+    ORCID_TOKEN_URL       = "https://orcid.org/oauth/token"
+    ORCID_API_BASE        = "https://pub.orcid.org/v3.0"
+    ORCID_READ_TIMEOUT    = 20
     ORCID_CONNECT_TIMEOUT = 5
 
     # ORCID iDs follow the format 0000-0002-1825-0097 (last char may be X).
@@ -30,7 +30,8 @@ module Jobs
       response = Excon.get(
         url,
         headers: {
-          "Accept"        => "application/json",
+          # Use ORCID's recommended v3.0 explicit JSON accept header
+          "Accept"        => "application/vnd.orcid+json",
           "Authorization" => "Bearer #{access_token}"
         },
         read_timeout:    ORCID_READ_TIMEOUT,
@@ -47,6 +48,8 @@ module Jobs
       groups = data["group"] || []
 
       groups.each do |group|
+        # ORCID groups multiple versions of the same work together. 
+        # Grab the preferred summary (index 0).
         summary = group.dig("work-summary", 0)
         next unless summary
 
@@ -54,14 +57,27 @@ module Jobs
         title      = summary.dig("title", "title", "value")
         orcid_type = summary["type"]
 
+        # Extract URL: Try the direct work URL first.
         work_url = summary.dig("url", "value")
+        
+        # Fallback to DOI if a direct URL is missing.
+        # Utilizes ORCID API 3.0's "external-id-normalized" feature for accurate links.
         if work_url.blank? && summary["external-ids"]
-          doi_ext  = summary["external-ids"]["external-id"]&.find { |ext| ext["external-id-type"] == "doi" }
-          work_url = doi_ext.dig("external-id-url", "value") if doi_ext
+          doi_ext = summary["external-ids"]["external-id"]&.find { |ext| ext["external-id-type"] == "doi" }
+          
+          if doi_ext
+            work_url = doi_ext.dig("external-id-normalized", "value") || doi_ext.dig("external-id-url", "value")
+            
+            # Final fallback: construct the DOI URL manually from the raw value
+            if work_url.blank? && doi_ext["external-id-value"].present?
+              work_url = "https://doi.org/#{doi_ext["external-id-value"]}"
+            end
+          end
         end
 
         pub_type    = map_publication_type(orcid_type)
         publication = user.user_publications.find_or_initialize_by(orcid_put_code: put_code)
+        
         publication.title            = title || "Untitled Publication"
         publication.publication_type = pub_type
         publication.url              = work_url
@@ -77,9 +93,7 @@ module Jobs
 
     # Obtains a public-read access token from ORCID using the plugin's
     # OAuth2 client credentials (same as the OpenID Connect credentials).
-    # ORCID public tokens are valid for 20 years; cache for 7 days so a
-    # rotation or revocation is picked up within a week without hammering
-    # the token endpoint on every sync job.
+    # Cache for 7 days to prevent rate-limiting from ORCID's token endpoint.
     def fetch_public_access_token
       client_id     = SiteSetting.orcid_client_id
       client_secret = SiteSetting.orcid_client_secret
