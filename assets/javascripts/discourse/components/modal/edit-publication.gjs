@@ -6,8 +6,7 @@ import DButton from "discourse/components/d-button";
 import DModal from "discourse/components/d-modal";
 import ajax from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-// discourse-common/helpers/i18n was removed — the canonical path is discourse-i18n
-import i18n from "discourse-i18n";
+import i18n from "discourse-common/helpers/i18n";
 
 export default class EditPublicationModal extends Component {
   @tracked title = "";
