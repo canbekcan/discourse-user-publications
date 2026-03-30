@@ -1,14 +1,13 @@
 import { withPluginApi } from "discourse/lib/plugin-api";
+import UserPublicationsList from "../components/user-publications-list";
 
 export default {
   name: "setup-user-publications",
   initialize() {
-    withPluginApi("1.30.0", (api) => {
-      api.addProfileTab({
-        name: "publications",
-        route: "user.publications",
-        icon: "book",
-        i18nKey: "user_publications.tab_title",
+    withPluginApi("2.0.0", (api) => {
+      api.addUserPage("publications", UserPublicationsList, {
+        path: "publications",
+        tabIcon: "book",
       });
     });
   },
